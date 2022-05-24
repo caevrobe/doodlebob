@@ -2,16 +2,26 @@ var sz = 5;        // pixel size
 var p_scale = 3;   // visual pixel scaling factor
 
 let intID = null;  // JS interval ID
-var freq  = 50     // ms interval for color changing 
+var freq = 50     // ms interval for color changing 
 var c_scale = 10;  // max amount of color change per interval 
 var colors = null; // array used for color changing
 
 
+let buffer;
+
+
+let originalWidth;
+let originalHeight;
 
 function setup() {
-   createCanvas(windowWidth, windowWidth);
-   noStroke();
-   background(0);
+   createCanvas(windowWidth, windowHeight);
+   buffer = createGraphics(windowWidth, windowHeight);
+
+   originalWidth = windowWidth;
+   originalHeight = windowHeight;
+
+   buffer.noStroke();
+   buffer.background(0);
 
    c_placed = color(randomColor(), randomColor(), randomColor());
    c_preview = color(0, 0, 0, 127);
@@ -23,21 +33,21 @@ const randomColor = () => Math.floor(Math.random() * 256);
 
 // calculates mouse coordinates constrained to a grid of pixels of size
 const calculateCoords = (mouseX, mouseY) => ({
-   x: Math.ceil((mouseX-sz*p_scale/2) / sz) * sz, 
-   y: Math.ceil((mouseY-sz*p_scale/2) / sz) * sz
+   x: Math.ceil((mouseX - sz * p_scale / 2) / sz) * sz,
+   y: Math.ceil((mouseY - sz * p_scale / 2) / sz) * sz
 });
 
 
 async function addTile(coords, from_server = false) {
    if (!from_server) {
       coords.color = c_placed.levels;
-      fill(c_placed);
+      buffer.fill(c_placed);
       sendMessage('s:placed_tile', coords);
    } else {
-      fill(color(coords.color));
+      buffer.fill(color(coords.color));
    }
-   
-   rect(coords.x, coords.y, sz*p_scale, sz*p_scale);
+
+   buffer.rect(coords.x, coords.y, sz * p_scale, sz * p_scale);
 }
 
 function mouseClicked() {
@@ -47,7 +57,7 @@ function mouseClicked() {
 }
 
 let last = {};
-async function mouseDragged() {
+async function mouseDragged(event) {
    let coords = calculateCoords(mouseX, mouseY);
    let pcoords = last;
 
@@ -86,17 +96,27 @@ function mouseReleased() {
    last = {};
 }
 
+function windowResized() {
+   resizeCanvas(windowWidth, windowHeight);
 
-function draw() { }
+   old = buffer;
+   buffer = createGraphics(windowWidth, windowHeight)
+   buffer.noStroke();
+   buffer.background(0);
+   buffer.image(old, 0, 0, windowWidth, windowHeight)
+   old.remove();
+}
 
-
+function draw() {
+   image(buffer, 0, 0, windowWidth, windowHeight);
+}
 
 document.addEventListener('keydown', cheatCode);
 
 let code = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a', 'Enter'];
 let idx = 0;
 function cheatCode(e) {
-   idx = (e.key.toUpperCase() === code[idx].toUpperCase()) ? idx+1 : 0;
+   idx = (e.key.toUpperCase() === code[idx].toUpperCase()) ? idx + 1 : 0;
 
    if (idx == code.length) {
       haha();
@@ -108,16 +128,16 @@ function cheatCode(e) {
 function haha() {
    if (intID)
       clearInterval(intID);
-   
+
    if (!colors) {
       colors = [];
       for (let i = 0; i < 3; i++) {
          let sign = Math.random() < 0.5 ? -1 : 1;
-   
+
          let color = randomColor();
-         let delta = Math.round((Math.random())*c_scale);
+         let delta = Math.round((Math.random()) * c_scale);
          let dir = delta * sign;
-         colors.push({color: color, delta: delta, dir: dir});
+         colors.push({ color: color, delta: delta, dir: dir });
       }
    }
 
@@ -125,10 +145,10 @@ function haha() {
       for (let i = 0; i < colors.length; i++) {
          let c = colors[i];
 
-         if ((c.color >= 255-c.delta && c.dir > 0) || (c.color <= 0+c.delta && c.dir < 0))
+         if ((c.color >= 255 - c.delta && c.dir > 0) || (c.color <= 0 + c.delta && c.dir < 0))
             colors[i].dir *= -1
 
-         colors[i].color+=colors[i].dir;
+         colors[i].color += colors[i].dir;
       }
 
       c_placed = color(colors[0].color, colors[1].color, colors[2].color, 255);
